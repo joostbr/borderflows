@@ -1,3 +1,4 @@
+import time
 from datetime import date, datetime, timedelta
 import json
 
@@ -176,10 +177,11 @@ class UploadUKBorderFlowsRNP(Task):
 
 
 if __name__ == '__main__':
-    fromdt = datetime(2020, 1, 1)
+    fromdt = datetime(2024, 1, 1)
 
-    for i in range(1000):
-        print(fromdt+timedelta(days=i),i)
-        t = UploadUKBorderFlowsRNP(frequency=0).upload_data(fromdt, fromdt+timedelta(days=i))
 
+    for i in range(3):
+        print(fromdt)
+        t = UploadUKBorderFlowsRNP(frequency=0).upload_data(fromdt, fromdt+timedelta(days=30))
+        fromdt = fromdt+timedelta(days=30)
 
