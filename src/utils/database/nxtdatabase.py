@@ -38,7 +38,10 @@ class NXTDatabase:
     @property
     def engine(self):
         if self._engine is None:
-            self._engine = create_engine('mysql://' + self.user + ':' + self.password + '@' + self.server + ':3306/' + self.database, pool_recycle=60 * 5, pool_pre_ping=True)
+            self._engine = create_engine('mysql+pymysql://' + self.user + ':' + self.password + '@' + self.server + ':3306/' + self.database, pool_recycle=60 * 5, pool_pre_ping=True)
+            #self._engine = create_engine(
+            #    'mysql://' + self.user + ':' + self.password + '@' + self.server + ':3306/' + self.database,
+            #    pool_recycle=60 * 5, pool_pre_ping=True)
 
         return self._engine
 

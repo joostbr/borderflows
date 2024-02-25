@@ -176,8 +176,10 @@ class UploadUKBorderFlowsRNP(Task):
 
 
 if __name__ == '__main__':
-    fromdt = datetime(2024, 2, 25)
+    fromdt = datetime(2020, 1, 1)
 
-    t = UploadUKBorderFlowsRNP(frequency=0).upload_data(fromdt, fromdt+timedelta(days=1))
+    for i in range(1000):
+        print(fromdt+timedelta(days=i),i)
+        t = UploadUKBorderFlowsRNP(frequency=0).upload_data(fromdt, fromdt+timedelta(days=i))
 
 
