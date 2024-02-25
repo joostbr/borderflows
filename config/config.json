@@ -5,10 +5,10 @@
         "password": "u7FB09Ssnzsu",
         "database": "db01.traders.az.hexatraders.be"
     },
-    "nxt_trading": {
+    "nxt_energy": {
         "server": "nxt.amplifino.com",
         "user": "nxt",
         "password": "Vmh7PXaCLD8st9Yn",
-        "database": "trading"
+        "database": "energy"
     }
 }

@@ -8,23 +8,23 @@ import pytz
 from sqlalchemy import create_engine, text
 from src.utils.constants import CONFIG_PATH
 
-with open(CONFIG_PATH, "r") as f:
-    NXT_TRADING_DB_CONFIG = json.loads(f.read())["nxt_trading"]
+with open(os.path.join(CONFIG_PATH, "config.json"), "r") as f:
+    NXT_ENERGY_DB_CONFIG = json.loads(f.read())["nxt_energy"]
 
 class NXTDatabase:
 
-    _instance_trading = None
+    _instance_energy = None
 
     @staticmethod
-    def trading():
-        if NXTDatabase._instance_trading is None:
-            NXTDatabase._instance_trading = NXTDatabase(**NXT_TRADING_DB_CONFIG)
-        return NXTDatabase._instance_trading
+    def energy():
+        if NXTDatabase._instance_energy is None:
+            NXTDatabase._instance_energy = NXTDatabase(**NXT_ENERGY_DB_CONFIG)
+        return NXTDatabase._instance_energy
 
     @staticmethod
     def close_all():
-        if not NXTDatabase._instance_trading is None:
-            NXTDatabase._instance_trading.close()
+        if not NXTDatabase._instance_energy is None:
+            NXTDatabase._instance_energy.close()
 
     def __init__(self, server, user, password, database):
         self.server = server
@@ -103,8 +103,26 @@ class NXTDatabase:
             for line in values:
                 con.execute(statement, **line)
 
+    def bulk_upsert(self, df, table, cols):
+        params = df[cols].to_dict('records')
+
+        v_str = ",".join(f":{col}" for col in cols)
+        update_str = ",".join(f'{table}.{col} = t.{col}' for col in cols)
+
+        query = text(f""" 
+                        INSERT INTO {table}({",".join(cols)})
+                        VALUES ({v_str}) AS t({",".join(cols)})
+                        ON DUPLICATE KEY
+                        UPDATE {update_str}
+                 """)
+
+        with self.engine.connect() as con:
+            t = con.begin()
+            con.execute(query, params)
+            t.commit()
+
 if __name__ == "__main__":
-    db = NXTDatabase.trading()
+    db = NXTDatabase.energy()
 
     print(db.engine.execute("SELECT 1"))
 

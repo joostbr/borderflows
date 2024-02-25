@@ -23,10 +23,10 @@ class JaoAPI:
         }
 
         if len(df) > 0:
-            df["UTCTIME"] = pd.to_datetime(df["UTCTIME"])
-
-
-        return df.rename(columns=ren).rename(columns=lambda x: x.replace('border_', '')).drop(columns=["id"])
+            df["dateTimeUtc"] = pd.to_datetime(df["dateTimeUtc"]).dt.tz_localize(None)
+            return df.rename(columns=ren).rename(columns=lambda x: x.replace('border_', '')).drop(columns=["id"])
+        else:
+            return df
 
 
 if __name__ == "__main__":
@@ -34,4 +34,4 @@ if __name__ == "__main__":
 
     df = jp.get_scheduled_exchanges(datetime.datetime(2024,2,20), datetime.datetime(2024,2,21))
 
-    print(df)
+    print(df.columns)
