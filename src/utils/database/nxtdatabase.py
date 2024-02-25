@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 
+import numpy as np
 import pandas as pd
 import pyodbc
 import pytz
@@ -104,7 +105,7 @@ class NXTDatabase:
                 con.execute(statement, **line)
 
     def bulk_upsert(self, df, table, cols):
-        params = df[cols].to_dict('records')
+        params = df[cols].replace({np.nan: None}).to_dict('records')
 
         v_str = ",".join(f":{col}" for col in cols)
         update_str = ",".join(f'{table}.{col} = t.{col}' for col in cols)
