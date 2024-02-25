@@ -104,7 +104,11 @@ class NXTDatabase:
             for line in values:
                 con.execute(statement, **line)
 
-    def bulk_upsert(self, df, table, cols):
+    def bulk_upsert(self, df, table, cols, moddate_col=None):
+        if not moddate_col is None:
+            df[moddate_col] = datetime.datetime.utcnow()
+            cols.append(moddate_col)
+
         params = df[cols].replace({np.nan: None}).to_dict('records')
 
         v_str = ",".join(f":{col}" for col in cols)
