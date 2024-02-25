@@ -1,0 +1,14 @@
+{
+    "hexatraders": {
+        "server": "sql01-traders-az-hexatraders-be.database.windows.net",
+        "user": "amplifinoUser",
+        "password": "u7FB09Ssnzsu",
+        "database": "db01.traders.az.hexatraders.be"
+    },
+    "nxt_trading": {
+        "server": "nxt.amplifino.com",
+        "user": "nxt",
+        "password": "Vmh7PXaCLD8st9Yn",
+        "database": "trading"
+    }
+}
