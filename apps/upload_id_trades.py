@@ -17,7 +17,7 @@ def upload_netborder(netborder):
         netborder.to_sql("XBID_TRADES", conn, if_exists="append", index=False)
 
 if __name__ == "__main__":
-    from_utc = datetime.datetime(2024, 4, 20)
+    from_utc = datetime.datetime(2023, 1, 1)
     to_utc = datetime.datetime(2024, 4, 22)
 
     intraday_trades = IntradayTrades()
@@ -26,10 +26,16 @@ if __name__ == "__main__":
     while dt < to_utc:
         print(dt)
         ndt = dt + datetime.timedelta(days=1)
-        trades = intraday_trades.get_trades(dt, ndt)
-        print(len(trades))
-        netborder = intraday_trades.calculate_netborder(trades)
+        #trades = intraday_trades.get_trades(dt, ndt)
+        #print(len(trades))
+        #netborder = intraday_trades.calculate_netborder(trades)
 
-        upload_netborder(netborder)
+        netborder = NXTDatabase.energy().query(f"""
+            SELECT *
+            FROM XBID_TRADES
+            WHERE UTCTIME >= '{dt.isoformat()}' AND UTCTIME < '{ndt.isoformat()}'
+        """)
+
+        intraday_trades._upload_to_smart(netborder)
 
         dt = ndt

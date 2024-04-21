@@ -133,7 +133,7 @@ class IntradayTrades:
         self._upload_to_smart(netborder)
 
     def _upload_to_smart(self, netborder):
-        HexatradersDatabase.get_instance().bulk_upsert(netborder, "trading.XBID_TRADES", ["UTCTIME", "BUYERAREA", "SELLERAREA", "VOLUME", "PRICE"])
+        HexatradersDatabase.get_instance().bulk_upsert(df=netborder, table="traders.XBID_TRADES", key_cols=["UTCTIME", "BUYERAREA", "SELLERAREA"], data_cols=["VOLUME", "PRICE"], moddate_col="CREATIONDATE")
 
 
 
