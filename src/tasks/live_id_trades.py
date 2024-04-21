@@ -29,3 +29,7 @@ class LiveIntradayTradesTask(Task):
 
     def __str__(self):
         return f'LiveIntradayTrades'
+
+if __name__ == "__main__":
+    lit = LiveIntradayTradesTask()
+    lit.run()

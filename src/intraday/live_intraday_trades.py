@@ -51,8 +51,8 @@ class LiveIntradayTrades(IntradayTrades):
         return df.drop(columns="TIME")
 
     def update(self):
-        from_utc = datetime.datetime.now() - datetime.timedelta(days=1)
-        to_utc = datetime.datetime.now() + datetime.timedelta(days=1)
+        from_utc = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        to_utc = datetime.datetime.utcnow() + datetime.timedelta(days=1)
 
         if self._epex_id is None:
             new_epex = self._get_epex_trades(from_utc=from_utc, to_utc=to_utc)
