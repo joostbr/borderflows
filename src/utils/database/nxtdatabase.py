@@ -7,10 +7,7 @@ import pandas as pd
 import pyodbc
 import pytz
 from sqlalchemy import create_engine, text
-from src.utils.constants import CONFIG_PATH
-
-with open(os.path.join(CONFIG_PATH, "config.json"), "r") as f:
-    NXT_ENERGY_DB_CONFIG = json.loads(f.read())["nxt_energy"]
+from dotenv import load_dotenv
 
 class NXTDatabase:
 
@@ -18,8 +15,14 @@ class NXTDatabase:
 
     @staticmethod
     def energy():
+        load_dotenv()
+        host = os.getenv('NXT_HOST')
+        database = os.getenv('NXT_DATABASE')
+        username = os.getenv("NXT_USERNAME")
+        password = os.getenv('NXT_PASSWORD')
+
         if NXTDatabase._instance_energy is None:
-            NXTDatabase._instance_energy = NXTDatabase(**NXT_ENERGY_DB_CONFIG)
+            NXTDatabase._instance_energy = NXTDatabase(server=host, user=username, password=password, database=database)
         return NXTDatabase._instance_energy
 
     @staticmethod

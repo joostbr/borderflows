@@ -6,6 +6,7 @@ from sqlalchemy import text
 
 from src.intraday.delivery_areas import DeliveryArea
 from src.intraday.intraday_trades import IntradayTrades
+from src.utils.database.msdb_elindus import HexatradersDatabase
 from src.utils.database.nxtdatabase import NXTDatabase
 
 
@@ -20,7 +21,7 @@ class LiveIntradayTrades(IntradayTrades):
         self._np_df = None
 
     def _get_new_epex_trades(self, id_from):
-        df = self.msdb.query(self._epex_query + f"""
+        df = self.msdb_ro.query(self._epex_query + f"""
             WHERE ID > '{id_from}'
         """)
 
@@ -33,7 +34,7 @@ class LiveIntradayTrades(IntradayTrades):
         return df
 
     def _get_new_np_trades(self, id_from):
-        df = self.msdb.query(self._np_query + f"""
+        df = self.msdb_ro.query(self._np_query + f"""
             WHERE ID > '{id_from}'
         """)
 
@@ -79,24 +80,6 @@ class LiveIntradayTrades(IntradayTrades):
         trades = self.combine_trades(epex_trades=self._epex_df, np_trades=self._np_df)
 
         return trades
-
-    def upload_netborder(self, netborder):
-        insert_str = "),(".join([
-            f"""'{row['UTCTIME'].isoformat()}','{row['BUYERAREA']}','{row['SELLERAREA']}', {row["VOLUME"]},{row['PRICE']}"""
-            for i, row in netborder.iterrows()])
-
-        with NXTDatabase.energy().engine.begin() as con:
-            con.execute(text(
-                f"""
-                INSERT INTO XBID_TRADES(UTCTIME, BUYERAREA, SELLERAREA, VOLUME, PRICE) 
-                VALUES ({insert_str}) as np 
-                ON DUPLICATE KEY 
-                UPDATE 
-                    VOLUME=np.VOLUME,
-                    PRICE=np.PRICE,
-                    CREATIONDATE=NOW()
-                     """
-            ))
 
 if __name__ == "__main__":
     lit = LiveIntradayTrades()

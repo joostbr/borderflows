@@ -2,13 +2,17 @@ import datetime
 
 import pandas as pd
 import pytz
+from sqlalchemy import text
 
 from src.intraday.delivery_areas import DeliveryArea
-from src.utils.database.msdatabase import MSDatabase
+from src.utils.database.msdb_elindus import HexatradersDatabase, HexatradersDatabase_RO
+from src.utils.database.nxtdatabase import NXTDatabase
+
 
 class IntradayTrades:
     def __init__(self):
-        self.msdb = MSDatabase.hexatraders()
+        self.msdb = HexatradersDatabase.get_instance()
+        self.msdb_ro = HexatradersDatabase_RO.get_instance()
 
         self._id_cols = ["PRICE", "VOLUME", "DELIVERYSTARTUTC", "DELIVERYENDUTC", "BUYERAREA", "SELLERAREA"]
         self._epex_query = """
@@ -22,7 +26,7 @@ class IntradayTrades:
         """
 
     def _get_epex_trades(self, from_utc, to_utc):
-        df = self.msdb.query(self._epex_query + f"""
+        df = self.msdb_ro.query(self._epex_query + f"""
             WHERE DELIVERYSTARTUTC >= '{from_utc.isoformat()}' AND DELIVERYENDUTC <= '{to_utc.isoformat()}'
         """)
 
@@ -32,7 +36,7 @@ class IntradayTrades:
         return df
 
     def _get_np_trades(self, from_utc, to_utc):
-        df = self.msdb.query(self._np_query + f"""
+        df = self.msdb_ro.query(self._np_query + f"""
             WHERE DELIVERYSTARTUTC >= '{from_utc.isoformat()}' AND DELIVERYENDUTC <= '{to_utc.isoformat()}'
         """)
 
@@ -106,6 +110,31 @@ class IntradayTrades:
         netborder["PRICE"] = netborder["VOLPRICE"] / netborder["VOLUME"]
 
         return netborder.drop(columns="VOLPRICE").rename(columns={"DELIVERYSTARTUTC": "UTCTIME"})
+
+    def upload_netborder(self, netborder):
+        insert_str = "),(".join([
+            f"""'{row['UTCTIME'].isoformat()}','{row['BUYERAREA']}','{row['SELLERAREA']}', {row["VOLUME"]},{row['PRICE']}"""
+            for i, row in netborder.iterrows()])
+
+        with NXTDatabase.energy().engine.begin() as con:
+            con.execute(text(
+                f"""
+                INSERT INTO XBID_TRADES(UTCTIME, BUYERAREA, SELLERAREA, VOLUME, PRICE) 
+                VALUES ({insert_str}) as np 
+                ON DUPLICATE KEY 
+                UPDATE 
+                    VOLUME=np.VOLUME,
+                    PRICE=np.PRICE,
+                    CREATIONDATE=NOW()
+                     """
+            ))
+
+        # Upload to smart
+        self._upload_to_smart(netborder)
+
+    def _upload_to_smart(self, netborder):
+        HexatradersDatabase.get_instance().bulk_upsert(netborder, "trading.XBID_TRADES", ["UTCTIME", "BUYERAREA", "SELLERAREA", "VOLUME", "PRICE"])
+
 
 
 if __name__ == "__main__":
