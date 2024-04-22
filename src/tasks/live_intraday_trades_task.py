@@ -18,7 +18,7 @@ class LiveIntradayTradesTask(Task):
         if self._prev_netborder is not None:
             set_old = set(self._prev_netborder.itertuples(index=False))
             mask = [x not in set_old for x in netborder.itertuples(index=False)]
-            netborder_simplified = netborder[mask]
+            netborder_simplified = netborder[mask].copy()
         else:
             netborder_simplified = netborder
 

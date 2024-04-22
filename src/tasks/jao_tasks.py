@@ -38,7 +38,7 @@ class DABorderFlowsJAO(Task):
 
 class DANetpositionsJAO(Task):
     def __init__(self, **kwargs):
-        super().__init__(task=self.upload_data, task_name="UPLOAD DA BORDER FLOWS JAO", **kwargs)
+        super().__init__(task=self.upload_data, task_name="UPLOAD DA NETPOSITIONS JAO", **kwargs)
 
         self.cols = ['UTCTIME', 'ALBE', 'ALDE', 'AT', 'BE', 'CZ', 'DE', 'HR', 'HU', 'FR', 'NL', 'RO', 'SI', 'SK', 'PL']
 
@@ -61,7 +61,7 @@ class DANetpositionsJAO(Task):
 
 class NTCJAO(Task):
     def __init__(self, **kwargs):
-        super().__init__(task=self.upload_data, task_name="UPLOAD DA BORDER FLOWS JAO", **kwargs)
+        super().__init__(task=self.upload_data, task_name="UPLOAD DA NTC JAO", **kwargs)
 
         self.cols = ['UTCTIME', 'AT_CZ', 'AT_DE', 'AT_HU', 'AT_SI', 'BE_DE', 'BE_FR',
            'BE_NL', 'CZ_AT', 'CZ_DE', 'CZ_PL', 'CZ_SK', 'DE_AT', 'DE_BE', 'DE_CZ',
@@ -88,7 +88,7 @@ class NTCJAO(Task):
 
 class ATCJAO(Task):
     def __init__(self, **kwargs):
-        super().__init__(task=self.upload_data, task_name="UPLOAD DA BORDER FLOWS JAO", **kwargs)
+        super().__init__(task=self.upload_data, task_name="UPLOAD DA ATC JAO", **kwargs)
 
         self.cols = ['UTCTIME', 'AT_CZ', 'AT_DE', 'AT_HU', 'AT_SI', 'BE_DE', 'BE_FR',
            'BE_NL', 'CZ_AT', 'CZ_DE', 'CZ_PL', 'CZ_SK', 'DE_AT', 'DE_BE', 'DE_CZ',
