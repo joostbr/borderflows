@@ -5,10 +5,10 @@ from src.utils.tasks.task_orchestrator import TaskOrchestrator
 if __name__ == "__main__":
     tasks = [
         LiveIntradayTradesTask(),
-        DABorderFlowsJAO(frequency=3600),
-        DANetpositionsJAO(frequency=3600),
-        NTCJAO(frequency=3600),
-        ATCJAO(frequency=3600)
+        DABorderFlowsJAO(executiontime='14:00:00'),
+        DANetpositionsJAO(executiontime='14:00:00'),
+        NTCJAO(executiontime='14:00:00'),
+        ATCJAO(executiontime='14:00:00')
     ]
 
     executor = TaskOrchestrator(tasks)
