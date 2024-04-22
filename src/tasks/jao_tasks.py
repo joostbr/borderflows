@@ -26,7 +26,6 @@ class DABorderFlowsJAO(Task):
         today_utc = datetime.datetime.now(LOCALTZ).replace(tzinfo=None, hour=0, minute=0, second=0, microsecond=0)
         return today_utc + datetime.timedelta(days=1), today_utc + datetime.timedelta(days=2)
 
-
     def upload_data(self, fromutc=None, toutc=None):
         if fromutc is None or toutc is None:
             fromutc, toutc = self.get_time_window()

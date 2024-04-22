@@ -112,22 +112,7 @@ class IntradayTrades:
         return netborder.drop(columns="VOLPRICE").rename(columns={"DELIVERYSTARTUTC": "UTCTIME"})
 
     def upload_netborder(self, netborder):
-        insert_str = "),(".join([
-            f"""'{row['UTCTIME'].isoformat()}','{row['BUYERAREA']}','{row['SELLERAREA']}', {row["VOLUME"]},{row['PRICE']}"""
-            for i, row in netborder.iterrows()])
-
-        with NXTDatabase.energy().engine.begin() as con:
-            con.execute(text(
-                f"""
-                INSERT INTO XBID_TRADES(UTCTIME, BUYERAREA, SELLERAREA, VOLUME, PRICE) 
-                VALUES ({insert_str}) as np 
-                ON DUPLICATE KEY 
-                UPDATE 
-                    VOLUME=np.VOLUME,
-                    PRICE=np.PRICE,
-                    CREATIONDATE=NOW()
-                     """
-            ))
+        NXTDatabase.energy().bulk_upsert(netborder, "XBID_TRADES", ["UTCTIME", "BUYERAREA", "SELLERAREA", "VOLUME", "PRICE"], "CREATIONDATE")
 
         # Upload to smart
         self._upload_to_smart(netborder)
