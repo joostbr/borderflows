@@ -7,6 +7,7 @@ class LiveIntradayTradesTask(Task):
         super().__init__(frequency=60, task=self.run, task_name=self.__str__())
 
         self.lit = LiveIntradayTrades(region)
+        self.region = region
 
         self._prev_netborder = None
 
@@ -28,7 +29,7 @@ class LiveIntradayTradesTask(Task):
         self._prev_netborder = netborder
 
     def __str__(self):
-        return f'LiveIntradayTrades'
+        return f'LiveIntradayTrades[{self.region}]'
 
 if __name__ == "__main__":
     lit = LiveIntradayTradesTask()
