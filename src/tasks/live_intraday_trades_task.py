@@ -4,11 +4,10 @@ from src.utils.tasks.task_orchestrator import Task
 
 class LiveIntradayTradesTask(Task):
     def __init__(self, region):
+        self.region = region
         super().__init__(frequency=60, task=self.run, task_name=self.__str__())
 
         self.lit = LiveIntradayTrades(region)
-        self.region = region
-
         self._prev_netborder = None
 
     def run(self):
