@@ -11,8 +11,8 @@ from src.utils.database.nxtdatabase import NXTDatabase
 
 
 class LiveIntradayTrades(IntradayTrades):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, region):
+        super().__init__(region)
 
         self._epex_id = None
         self._np_id = None

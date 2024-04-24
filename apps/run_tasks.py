@@ -5,7 +5,8 @@ from src.utils.tasks.task_orchestrator import TaskOrchestrator
 
 if __name__ == "__main__":
     tasks = [
-        LiveIntradayTradesTask(),
+        LiveIntradayTradesTask(region="Belgium"),
+        LiveIntradayTradesTask(region="Netherlands"),
         #DABorderFlowsJAO(executiontime='14:00:00'),
         #DANetpositionsJAO(executiontime='14:01:00'),
         #NTCJAO(executiontime='14:02:00'),

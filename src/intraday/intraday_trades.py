@@ -10,25 +10,40 @@ from src.utils.database.nxtdatabase import NXTDatabase
 
 
 class IntradayTrades:
-    def __init__(self):
+    def __init__(self, region):
         self.msdb = HexatradersDatabase.get_instance()
         self.msdb_ro = HexatradersDatabase_RO.get_instance()
 
         self._id_cols = ["PRICE", "VOLUME", "DELIVERYSTARTUTC", "DELIVERYENDUTC", "BUYERAREA", "SELLERAREA"]
-        self._epex_query = """
+        self._epex_query = f"""
             SELECT ID, PRICE, QUANTITY AS VOLUME, DELIVERYSTARTUTC, DELIVERYENDUTC, BUYERAREA, SELLERAREA, TRADETIMEUTC
-            FROM PUBLICTRADEEPEX
+            FROM {self._get_epex_table_for_region(region)}
         """
 
-        self._np_query = """
+        self._np_query = f"""
             SELECT ID, PRICE, QUANTITY AS VOLUME, DELIVERYSTARTUTC, DELIVERYENDUTC, BUYERAREA, SELLERAREA, TIME
-            FROM PUBLICTRADE
+            FROM {self._get_nordpool_table_for_region(region)}
         """
+
+    def _get_epex_table_for_region(self, region):
+        if region == "Belgium":
+            return "PUBLICTRADEEPEX"
+        else:
+            return "traders.PUBLICTRADEEPEX"
+
+    def _get_nordpool_table_for_region(self, region):
+        if region == "Belgium":
+            return "PUBLICTRADE"
+        else:
+            return "traders.PUBLICTRADENORDPOOL"
 
     def _get_epex_trades(self, from_utc, to_utc):
         df = self.msdb_ro.query(self._epex_query + f"""
             WHERE DELIVERYSTARTUTC >= '{from_utc.isoformat()}' AND DELIVERYENDUTC <= '{to_utc.isoformat()}'
         """)
+
+        if len(df) == 0:
+            return df
 
         df['BUYERAREA'] = df['BUYERAREA'].apply(lambda x: DeliveryArea.get_delivery_area_by_eic_code(x).area_code)
         df['SELLERAREA'] = df['SELLERAREA'].apply(lambda x: DeliveryArea.get_delivery_area_by_eic_code(x).area_code)
@@ -39,6 +54,9 @@ class IntradayTrades:
         df = self.msdb_ro.query(self._np_query + f"""
             WHERE DELIVERYSTARTUTC >= '{from_utc.isoformat()}' AND DELIVERYENDUTC <= '{to_utc.isoformat()}'
         """)
+
+        if len(df) == 0:
+            return df
 
         df["TRADETIMEUTC"] = df["TIME"].dt.tz_localize(pytz.timezone('Europe/Brussels'), ambiguous="NaT").dt.tz_convert(pytz.utc).dt.tz_localize(None)
         df["TRADETIMEUTC"] = df["TRADETIMEUTC"].ffill() # fill the NaT values with the previous value
@@ -112,9 +130,14 @@ class IntradayTrades:
         return netborder.drop(columns="VOLPRICE").rename(columns={"DELIVERYSTARTUTC": "UTCTIME"})
 
     def upload_netborder(self, netborder):
-        NXTDatabase.energy().bulk_upsert(netborder, "XBID_TRADES", ["UTCTIME", "BUYERAREA", "SELLERAREA", "VOLUME", "PRICE"], "CREATIONDATE")
+        if len(netborder) == 0:
+            return
+
+        print("AMPLIFINO UPLOAD")
+        NXTDatabase.energy().bulk_upsert(netborder, "XBID_TRADES", key_cols=["UTCTIME", "BUYERAREA", "SELLERAREA"], data_cols=["VOLUME", "PRICE"], moddate_col="CREATIONDATE")
 
         # Upload to smart
+        print("SMART UPLOAD")
         self._upload_to_smart(netborder)
 
     def _upload_to_smart(self, netborder):
