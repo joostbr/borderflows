@@ -1,4 +1,3 @@
-import time
 from datetime import date, datetime, timedelta
 import json
 
@@ -158,30 +157,4 @@ class RnpAPI:
 
         return result
 
-
-class UploadUKBorderFlowsRNP(Task):
-
-    def __init__(self, **kwargs):
-        super().__init__(task=self.upload_data, task_name="UPLOAD UK IMPORT EXPORT RNP", **kwargs)
-        self.database = NXTDatabase.energy()
-        self.scraper = RnpAPI()
-
-    def upload_data(self, fromdt=None, todt=None):
-        df = self.scraper.uk_import_export_scraper(fromdt, todt)
-        if df.empty:
-            raise NoDataException
-
-        cols = ['UTCTIME', 'ID_BE_UK', 'DA_BE_UK', 'LT_BE_UK', 'ID_UK_BE', 'DA_UK_BE', 'LT_UK_BE']
-        self.database.bulk_upsert(df=df, table='UK_BORDER_FLOWS_RNP', cols=cols)
-
-
-
-if __name__ == '__main__':
-    fromdt = datetime(2024, 1, 1)
-
-
-    for i in range(3):
-        print(fromdt)
-        t = UploadUKBorderFlowsRNP(frequency=0).upload_data(fromdt, fromdt+timedelta(days=30))
-        fromdt = fromdt+timedelta(days=30)
 

@@ -7,10 +7,7 @@ import pandas as pd
 import pyodbc
 import pytz
 from sqlalchemy import create_engine, text
-from src.utils.constants import CONFIG_PATH
-
-with open(os.path.join(CONFIG_PATH, "config.json"), "r") as f:
-    NXT_ENERGY_DB_CONFIG = json.loads(f.read())["nxt_energy"]
+from dotenv import load_dotenv
 
 class NXTDatabase:
 
@@ -18,8 +15,14 @@ class NXTDatabase:
 
     @staticmethod
     def energy():
+        load_dotenv()
+        host = os.getenv('NXT_HOST')
+        database = os.getenv('NXT_DATABASE')
+        username = os.getenv("NXT_USERNAME")
+        password = os.getenv('NXT_PASSWORD')
+
         if NXTDatabase._instance_energy is None:
-            NXTDatabase._instance_energy = NXTDatabase(**NXT_ENERGY_DB_CONFIG)
+            NXTDatabase._instance_energy = NXTDatabase(server=host, user=username, password=password, database=database)
         return NXTDatabase._instance_energy
 
     @staticmethod
@@ -107,15 +110,19 @@ class NXTDatabase:
             for line in values:
                 con.execute(statement, **line)
 
-    def bulk_upsert(self, df, table, cols):
-        params = df[cols].replace({np.nan: None}).to_dict('records')
+    def bulk_upsert_old(self, df, table, key_cols, data_cols, moddate_col=None):
+        if not moddate_col is None:
+            df[moddate_col] = datetime.datetime.utcnow()
+            data_cols.append(moddate_col)
 
-        v_str = ",".join(f":{col}" for col in cols)
-        update_str = ",".join(f'{table}.{col} = t.{col}' for col in cols)
+        params = df[key_cols + data_cols].replace({np.nan: None}).to_dict('records')
+
+        v_str = ",".join(f":{col}" for col in key_cols + data_cols)
+        update_str = ",".join(f'{table}.{col} = t.{col}' for col in data_cols)
 
         query = text(f""" 
-                        INSERT INTO {table}({",".join(cols)})
-                        VALUES ({v_str}) AS t({",".join(cols)})
+                        INSERT INTO {table}({",".join(key_cols + data_cols)})
+                        VALUES ({v_str}) AS t({",".join(key_cols + data_cols)})
                         ON DUPLICATE KEY
                         UPDATE {update_str}
                  """)
@@ -123,6 +130,27 @@ class NXTDatabase:
         with self.engine.connect() as con:
             t = con.begin()
             con.execute(query, params)
+            t.commit()
+
+    def bulk_upsert(self, df, table, key_cols, data_cols, moddate_col=None):
+        if not moddate_col is None:
+            df[moddate_col] = datetime.datetime.utcnow()
+            data_cols.append(moddate_col)
+
+        update_str = ",".join(f'{table}.{col} = t.{col}' for col in data_cols)
+        value_str = "),(".join([",".join(["'" + str(row[k]) + "'" for k in key_cols + data_cols]) for i, row in df[key_cols + data_cols].iterrows()])
+
+        upsert_query = f"""
+            INSERT INTO {table}
+            VALUES ({value_str}) as t({",".join(key_cols + data_cols)})
+            ON DUPLICATE KEY UPDATE 
+            {update_str}
+        """
+
+        # Execute the upsert query
+        with self.engine.connect() as conn:
+            t = conn.begin()
+            conn.execute(text(upsert_query))
             t.commit()
 
 if __name__ == "__main__":
