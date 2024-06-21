@@ -133,9 +133,10 @@ class NXTDatabase:
             t.commit()
 
     def bulk_upsert(self, df, table, key_cols, data_cols, moddate_col=None):
+        df = df.copy()
         if not moddate_col is None:
             df[moddate_col] = datetime.datetime.utcnow()
-            data_cols.append(moddate_col)
+            data_cols += [moddate_col]
 
         update_str = ",".join(f'{table}.{col} = t.{col}' for col in data_cols)
         value_str = "),(".join([",".join(["'" + str(row[k]) + "'" for k in key_cols + data_cols]) for i, row in df[key_cols + data_cols].iterrows()])
