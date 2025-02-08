@@ -6,8 +6,8 @@ from src.intraday.intraday_trades import IntradayTrades
 from src.utils.database.nxtdatabase import NXTDatabase
 
 if __name__ == "__main__":
-    from_utc = datetime.datetime(2024, 4, 20)
-    to_utc = datetime.datetime(2024, 4, 24)
+    from_utc = datetime.datetime(2024, 4, 1)
+    to_utc = datetime.datetime(2024, 4, 28)
 
     intraday_trades = IntradayTrades(region="Belgium")
 
