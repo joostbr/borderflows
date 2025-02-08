@@ -126,10 +126,21 @@ class IntradayTrades:
         }).reset_index()
 
         netborder["PRICE"] = netborder["VOLPRICE"] / netborder["VOLUME"]
+        netborder_h["PRICE"] = netborder_h["VOLPRICE"] / netborder_h["VOLUME"]
+        netborder_hh["PRICE"] = netborder_hh["VOLPRICE"] / netborder_hh["VOLUME"]
+        netborder_q["PRICE"] = netborder_q["VOLPRICE"] / netborder_q["VOLUME"]
 
-        return netborder.drop(columns="VOLPRICE").rename(columns={"DELIVERYSTARTUTC": "UTCTIME"})
+        netborder_h = netborder_h.drop(columns="VOLPRICE").reset_index().rename(columns={"DELIVERYSTARTUTC": "UTCTIME"})
+        netborder_hh = netborder_hh.drop(columns="VOLPRICE").reset_index().rename(columns={"DELIVERYSTARTUTC": "UTCTIME"})
+        netborder_q = netborder_q.drop(columns="VOLPRICE").reset_index().rename(columns={"DELIVERYSTARTUTC": "UTCTIME"})
 
-    def upload_netborder(self, netborder):
+        netborder_h["PRODUCTTYPE"] = "H"
+        netborder_q["PRODUCTTYPE"] = "QH"
+        netborder_hh["PRODUCTTYPE"] = "HH"
+
+        return netborder.drop(columns="VOLPRICE").rename(columns={"DELIVERYSTARTUTC": "UTCTIME"}), netborder_h, netborder_hh, netborder_q
+
+    def upload_netborder(self, netborder, netborder_h=None, netborder_hh=None, netborder_q=None):
         if len(netborder) == 0:
             return
 
@@ -138,20 +149,27 @@ class IntradayTrades:
 
         # Upload to smart
         print("SMART UPLOAD")
-        self._upload_to_smart(netborder)
+        self._upload_to_smart(netborder, netborder_h, netborder_hh, netborder_q)
 
-    def _upload_to_smart(self, netborder):
+    def _upload_to_smart(self, netborder, netborder_h=None, netborder_hh=None, netborder_qh=None):
         HexatradersDatabase.get_instance().bulk_upsert(df=netborder, table="traders.XBID_TRADES", key_cols=["UTCTIME", "BUYERAREA", "SELLERAREA"], data_cols=["VOLUME", "PRICE"], moddate_col="CREATIONDATE")
+        if netborder_h is not None and len(netborder_h)>0:
+            HexatradersDatabase.get_instance().bulk_upsert(netborder_h, "traders.XBID_TRADES_PER_PRODUCT", key_cols=["UTCTIME", "BUYERAREA", "SELLERAREA","PRODUCTTYPE"], data_cols=["VOLUME", "PRICE"], moddate_col="CREATIONDATE")
+        if netborder_hh is not None and len(netborder_hh)>0:
+            HexatradersDatabase.get_instance().bulk_upsert(netborder_hh, "traders.XBID_TRADES_PER_PRODUCT", key_cols=["UTCTIME", "BUYERAREA", "SELLERAREA","PRODUCTTYPE"], data_cols=["VOLUME", "PRICE"], moddate_col="CREATIONDATE")
+        if netborder_qh is not None and len(netborder_qh)>0:
+            HexatradersDatabase.get_instance().bulk_upsert(netborder_qh, "traders.XBID_TRADES_PER_PRODUCT", key_cols=["UTCTIME", "BUYERAREA", "SELLERAREA","PRODUCTTYPE"], data_cols=["VOLUME", "PRICE"], moddate_col="CREATIONDATE")
 
 
 
 if __name__ == "__main__":
-    from_utc = datetime.datetime(2024,2,1,0,0)
-    to_utc = from_utc + datetime.timedelta(hours=2)
+    from_utc = datetime.datetime(2024,6,21,0,0)
+    to_utc = from_utc + datetime.timedelta(hours=24)
 
-    intraday_trades = IntradayTrades()
+    intraday_trades = IntradayTrades(region="Netherlands")
     trades = intraday_trades.get_trades(from_utc, to_utc)
-    netborder = intraday_trades.calculate_netborder(trades)
+    netborder, netborder_h, netborder_hh, netborder_qh = intraday_trades.calculate_netborder(trades)
+    intraday_trades.upload_netborder(netborder, netborder_h, netborder_hh, netborder_qh)
 
     print(trades)
 
