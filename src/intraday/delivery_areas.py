@@ -141,3 +141,19 @@ class DeliveryArea(Enum):
         return None
 
 
+TSO_AREA_MAPPING = {
+    "50HZT": DeliveryArea.FHZ,
+    "AMP": DeliveryArea.AMP,
+    "APG": DeliveryArea.AT,
+    "ELIA": DeliveryArea.BE,
+    "TNG": DeliveryArea.TBW,
+    "TTG": DeliveryArea.TTG,
+    "CEPS": DeliveryArea.CEPS,
+    "SG": DeliveryArea.CH,
+    "TERNA": DeliveryArea.ITC,
+    "ESO": DeliveryArea.BG,
+    "ENDK1": DeliveryArea.DK1,
+    "ENDK2": DeliveryArea.DK2,
+    "TNL": DeliveryArea.NL,
+    "SEPS": DeliveryArea.SK
+}

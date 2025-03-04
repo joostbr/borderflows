@@ -139,10 +139,10 @@ class NXTDatabase:
             data_cols += [moddate_col]
 
         update_str = ",".join(f'{table}.{col} = t.{col}' for col in data_cols)
-        value_str = "),(".join([",".join(["'" + str(row[k]) + "'" for k in key_cols + data_cols]) for i, row in df[key_cols + data_cols].iterrows()])
+        value_str = "),(".join([",".join(["'" + str(row[k]) + "'" if not pd.isnull(row[k]) else 'NULL' for k in key_cols + data_cols]) for i, row in df[key_cols + data_cols].iterrows()])
 
         upsert_query = f"""
-            INSERT INTO {table}
+            INSERT INTO {table} ({",".join(key_cols + data_cols)})
             VALUES ({value_str}) as t({",".join(key_cols + data_cols)})
             ON DUPLICATE KEY UPDATE 
             {update_str}

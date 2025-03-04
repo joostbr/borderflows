@@ -1,5 +1,11 @@
+from datetime import datetime
+
+import numpy as np
+import pandas as pd
+
 from src.intraday.delivery_areas import DeliveryArea
-from src.model.cmol.cmol_types import XML_FLOW_DIRECTION_MAP, XML_BUSINESS_TYPE, XML_MARKET_OBJECT_STATUS_MAP
+from src.model.cmol.cmol_types import XML_FLOW_DIRECTION_MAP, XML_BUSINESS_TYPE, XML_MARKET_OBJECT_STATUS_MAP, \
+    FlowDirection, MarketObjectStatus
 
 # https://eepublicdownloads.entsoe.eu/clean-documents/EDI/Library/Central_Transparency_Platform___IG_for_European_Platforms_v1.0.pdf
 # https://energinet.dk/media/12tbl1rn/implementation-guide-afrr-eam-september-2023.pdf
@@ -66,7 +72,7 @@ class CMOLBid:
 
     @property
     def price(self):
-        return sum([point.price * point.quantity for point in self.points]) / self.quantity
+        return sum([point.price * point.quantity for point in self.points]) / self.quantity if self.quantity > 0 else None
 
 class CMOL:
     def __init__(self, creation_utc, start_utc, end_utc, bids: [CMOLBid]):
@@ -74,6 +80,10 @@ class CMOL:
         self.start_utc = start_utc
         self.end_utc = end_utc
         self.bids = bids
+
+    @staticmethod
+    def _parse_utc(utc, has_seconds=False):
+        return datetime.strptime(utc, '%Y-%m-%dT%H:%M:%SZ' if has_seconds else '%Y-%m-%dT%H:%MZ')
 
     @staticmethod
     def from_xml(xml):
@@ -90,6 +100,89 @@ class CMOL:
         # Output extracted data
         bids = []
         for ts in xml.iter(f"{{{NAMESPACE['ns']}}}TimeSeries"):  # Efficiently iterate over all TimeSeries
-            bids.append(CMOLBid.from_xml(ts))
+            bid = CMOLBid.from_xml(ts)
+            if bid.price is not None and bid.quantity > 0:
+                bids.append(bid)
 
-        return CMOL(creation_utc=createdDateTime, start_utc=start_time, end_utc=end_time, bids=bids)
+        return CMOL(creation_utc=CMOL._parse_utc(createdDateTime, has_seconds=True), start_utc=CMOL._parse_utc(start_time), end_utc=CMOL._parse_utc(end_time), bids=bids)
+
+    def groupby_region(self):
+        cmol_by_area_and_direction = {}
+        for bid in self.bids:
+            key = (bid.connecting_domain_id, bid.direction)
+            if key not in cmol_by_area_and_direction:
+                cmol_by_area_and_direction[key] = []
+
+            cmol_by_area_and_direction[key].append(bid)
+
+        return cmol_by_area_and_direction
+
+    def transform_bids(self, bids, quantiles, flow_direction):
+        result = {}
+
+        bids_sorted = sorted(bids, key=lambda x: x.price if flow_direction == "UP" else -x.price)
+        bids_volume = sum([bid.quantity for bid in bids_sorted if bid.status == MarketObjectStatus.AVAILABLE])
+
+        for quantile in quantiles:
+            level = quantile * bids_volume
+
+            ## Marginal price
+            max_price = None
+            quantity = 0
+            for bid in bids_sorted:
+                if quantity >= max(level, 1): # 1 MW is the minimum quantity
+                    break
+
+                if bid.status == MarketObjectStatus.AVAILABLE:
+                    max_price = bid.price
+                    quantity += bid.quantity
+
+            result[str(int(1000*quantile))] = max_price if quantity > 0 else None
+
+        return result
+
+    def to_lmol_df(self, quantiles):
+        cmol_by_area_and_direction = self.groupby_region()
+
+        ups = []
+        downs = []
+        for (region, direction), bids in cmol_by_area_and_direction.items():
+            available_bids = [bid for bid in bids if bid.status == MarketObjectStatus.AVAILABLE]
+
+            transformed = self.transform_bids(available_bids, quantiles=quantiles, flow_direction=direction)
+            transformed["REGION"] = region.area_code
+            transformed["VOLUME"] = sum([bid.quantity for bid in available_bids])
+
+            if direction == FlowDirection.UP:
+                ups.append(transformed)
+            else:
+                downs.append(transformed)
+
+        ups = pd.DataFrame(ups)
+        downs = pd.DataFrame(downs)
+
+        ups = ups.rename(columns={level: f"UP_{level}" for level in ups.columns if level != "REGION"})
+        downs = downs.rename(columns={level: f"DOWN_{level}" for level in downs.columns if level != "REGION"})
+
+        df = ups.merge(downs, on="REGION", how="outer")
+        df["UTCTIME"] = self.start_utc
+        return df
+
+    def to_cmol_df(self, quantiles):
+        up_bids = [bid for bid in self.bids if bid.direction == FlowDirection.UP and bid.status == MarketObjectStatus.AVAILABLE]
+        down_bids = [bid for bid in self.bids if bid.direction == FlowDirection.DOWN and bid.status == MarketObjectStatus.AVAILABLE]
+
+        up_volume = sum([bid.quantity for bid in up_bids])
+        down_volume = sum([bid.quantity for bid in down_bids])
+
+        up_transformed = self.transform_bids(up_bids, quantiles=quantiles, flow_direction=FlowDirection.UP)
+        down_transformed = self.transform_bids(down_bids, quantiles=quantiles, flow_direction=FlowDirection.DOWN)
+
+        up_transformed["VOLUME"] = up_volume
+        down_transformed["VOLUME"] = down_volume
+
+        concatenated = {f"UP_{k}": v for k,v in up_transformed.items()}
+        concatenated.update({f"DOWN_{k}": v for k,v in down_transformed.items()})
+
+        concatenated["UTCTIME"] = self.start_utc
+        return pd.DataFrame([concatenated])
