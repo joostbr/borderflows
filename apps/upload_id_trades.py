@@ -6,8 +6,8 @@ from src.intraday.intraday_trades import IntradayTrades
 from src.utils.database.nxtdatabase import NXTDatabase
 
 if __name__ == "__main__":
-    from_utc = datetime.datetime(2024, 4, 1)
-    to_utc = datetime.datetime(2024, 4, 28)
+    from_utc = datetime.datetime(2024, 7, 5)
+    to_utc = datetime.datetime(2024, 7, 9)
 
     intraday_trades = IntradayTrades(region="Belgium")
 
@@ -17,7 +17,7 @@ if __name__ == "__main__":
         ndt = dt + datetime.timedelta(days=1)
         trades = intraday_trades.get_trades(dt, ndt)
         print(len(trades))
-        netborder = intraday_trades.calculate_netborder(trades)
+        netborder, netborder_h, netborder_hh, netborder_q = intraday_trades.calculate_netborder(trades)
         print("NETBORDER CALCULATED", len(netborder))
 
         #netborder = NXTDatabase.energy().query(f"""
@@ -26,6 +26,6 @@ if __name__ == "__main__":
         #    WHERE UTCTIME >= '{dt.isoformat()}' AND UTCTIME < '{ndt.isoformat()}'
         #""")
 
-        intraday_trades.upload_netborder(netborder)
+        intraday_trades.upload_netborder(netborder, netborder_h, netborder_hh, netborder_q)
 
         dt = ndt

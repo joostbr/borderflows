@@ -54,7 +54,7 @@ class LiveIntradayTrades(IntradayTrades):
         from_utc = datetime.datetime.utcnow().replace(minute=0, second=0, microsecond=0) - datetime.timedelta(days=1)
         to_utc = datetime.datetime.utcnow().replace(minute=0, second=0, microsecond=0)  + datetime.timedelta(days=1)
 
-        if self._epex_id is None:
+        if self._epex_id is None or self._epex_id is None:
             new_epex = self._get_epex_trades(from_utc=from_utc, to_utc=to_utc)
             if new_epex is not None:
                 self._epex_df = new_epex
@@ -62,9 +62,10 @@ class LiveIntradayTrades(IntradayTrades):
             old_df = self._epex_df[self._epex_df["DELIVERYSTARTUTC"] >= from_utc]
             self._epex_df = pd.concat([old_df, self._get_new_epex_trades(self._epex_id)])
 
-        self._epex_id = self._epex_df["ID"].max()
+        if len(self._epex_df) > 0:
+            self._epex_id = self._epex_df["ID"].max()
 
-        if self._np_df is None:
+        if self._np_df is None or self._np_id is None:
             new_np = self._get_np_trades(from_utc=from_utc, to_utc=to_utc)
             if new_np is not None:
                 self._np_df = new_np
@@ -72,7 +73,8 @@ class LiveIntradayTrades(IntradayTrades):
             old_df = self._np_df[self._np_df["DELIVERYSTARTUTC"] >= from_utc]
             self._np_df = pd.concat([old_df, self._get_new_np_trades(self._np_id)])
 
-        self._np_id = self._np_df["ID"].max()
+        if len(self._np_df) > 0:
+            self._np_id = self._np_df["ID"].max()
 
     def get_live_trades(self):
         self.update()
@@ -82,7 +84,7 @@ class LiveIntradayTrades(IntradayTrades):
         return trades
 
 if __name__ == "__main__":
-    lit = LiveIntradayTrades()
+    lit = LiveIntradayTrades(region='Belgium')
     trades = lit.get_live_trades()
     print(trades)
 
