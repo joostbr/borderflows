@@ -92,8 +92,15 @@ class TransnetAPI:
 
 
     def parse_xml(self, xml):
-        tree = ET.parse(xml)
-        root = tree.getroot()
+        xml_content = xml.read()#.decode('utf-8').replace('?"', '"')
+
+        if xml_content.startswith(b'<xml'):
+            xml_content = xml_content.decode('utf-8').replace('?"', '"') + "</xml>\n"
+            xml_content = xml_content.encode('utf-8')
+
+            root = ET.fromstring(xml_content)[0]
+        else:
+            root = ET.fromstring(xml_content)
 
         return CMOL.from_xml(root)
 
