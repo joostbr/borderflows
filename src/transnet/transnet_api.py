@@ -96,6 +96,10 @@ class TransnetAPI:
 
         if xml_content.startswith(b'<xml'):
             xml_content = xml_content.decode('utf-8').replace('?"', '"') #+ "</xml>\n"
+
+            if not xml_content.endswith("</xml>\r\n\n"):
+                xml_content += "</xml>\r\n\n"
+
             xml_content = xml_content.encode('utf-8')
 
             root = ET.fromstring(xml_content)[0]
