@@ -24,7 +24,7 @@ class ATCGraphOptimizer:
     Edges not in E are *physically impossible* and have no variable (implicitly 0).
     """
 
-    def __init__(self, countries: List[str]):
+    def __init__(self, countries: List[str], hops=3):
         self.countries = countries
         self.n = len(countries)
 
@@ -38,9 +38,11 @@ class ATCGraphOptimizer:
 
         # For quick lookups
         self.edge_index = {e: k for k, e in enumerate(self.E)}
-        self.out_neighbors = defaultdict(list)
+        self.out_neighbors = defaultdict(list) # contains all neighbours of an edge
         for (i, j) in self.E:
             self.out_neighbors[i].append(j)
+
+        self.hops = hops
 
         # Build problem
         self._build_problem()
@@ -49,9 +51,9 @@ class ATCGraphOptimizer:
         edges = []
 
         for country in countries:
-                for neighbor in ATC_EDGES[country]:
-                    if neighbor in countries:
-                        edges.append((country, neighbor))
+            for neighbor in ATC_EDGES[country]:
+                if neighbor in countries:
+                    edges.append((country, neighbor))
 
         return edges
 
@@ -65,8 +67,8 @@ class ATCGraphOptimizer:
         self.h2h = cp.Parameter((self.n, self.n), nonneg=True)
 
         # Collect slack variable blocks and constraints
-        self.slack_blocks = {}   # (i,j) -> cp.Variable(len(K_ij), nonneg=True)
-        self.K_lists = {}        # (i,j) -> list of k (indices) for which we created slack
+        self.indirect_flows = {}   # (i,j,k,n_hops) -> n_hops is number of hops between j and k
+        self.max_indirect_flows = {} # (i,j, n_hops) -> max over j of s(i,j,k)
         constr = []
 
         # Equality per (i,j): h2h[i,j] == flow(i->j) + sum_k slack(i,j,k)  if (i->j) in E
@@ -88,47 +90,82 @@ class ATCGraphOptimizer:
         def edge_var_index(i, j):
             return self.edge_index.get((i, j), None)
 
-        total_slack_terms = []
+        # inequalities for multi-hop slacks
+        for hop in range(2, self.hops + 1):
+            for i in range(self.n):
+                for j in self.out_neighbors[i]:
+                    e_ij = edge_var_index(i,  j)
+
+                    if hop == 2:
+                        for k in self.out_neighbors[j]:
+                            if k == i or k == j:
+                                continue
+
+                            # two-hop path i->j->k exists
+                            max_flow_ijk = cp.Variable(nonneg=True)
+                            self.indirect_flows[(i, j, k, hop)] = max_flow_ijk
+                            # min constraints: s(i,j,k) <= flow(i->j) and s(i,j,k) <= flow(j->k)
+                            e_jk = edge_var_index(j, k)
+
+                            constr += [
+                                max_flow_ijk <= self.flow[e_ij],          # bound by first hop
+                                max_flow_ijk <= self.flow[e_jk],          # bound by second hop
+                            ]
+                    else:
+                        for k in range(self.n):
+                            if k == i or k == j:
+                                continue
+
+                            indirect_flows = [self.indirect_flows[j, v, k, hop - 1] for v in range(self.n) if
+                                              (j, v, k, hop - 1) in self.indirect_flows]
+
+                            if len(indirect_flows) == 0:
+                                continue
+
+                            if (j, k, hop-1) not in self.max_indirect_flows:
+                                # create max variable for (j,k,hop-1)
+                                max_flow_jk = cp.Variable(nonneg=True)
+                                self.max_indirect_flows[(j, k, hop-1)] = max_flow_jk
+
+                                constr += [max_flow_jk >= cp.max(cp.hstack(indirect_flows))]
+                            else:
+                                max_flow_jk = self.max_indirect_flows[(j, k, hop-1)]
+
+                            max_flow_ijk = cp.Variable(nonneg=True)
+                            self.indirect_flows[(i, j, k, hop)] = max_flow_ijk
+                            constr += [
+                                max_flow_ijk <= self.flow[e_ij],          # bound by first hop
+                                max_flow_ijk <= max_flow_jk,                   # bound by other hops
+                            ]
+
+        # Equalities for h2h
         for i in range(self.n):
-            for j in range(self.n):
-                if i == j:
-                    # No self loop H2H; force to 0
-                    constr.append(self.h2h[i, j] == 0)
+            for k in range(self.n):
+                if i == k:
                     continue
 
-                e_ij = edge_var_index(i, j)
-                # Determine possible middle nodes k such that (j->k) also exists
-                K = []
-                if e_ij is not None:
-                    # Only create slack if the first hop (i->j) exists physically
-                    for k in self.out_neighbors[j]:
-                        if k != i and k != j:
-                            # two-hop path i->j->k exists
-                            K.append(k)
+                # h2h capacity is direct + indirect flows
+                e_ik = edge_var_index(i, k)
 
-                if K:
-                    s = cp.Variable(len(K), nonneg=True)
-                    self.slack_blocks[(i, j)] = s
-                    self.K_lists[(i, j)] = K
-                    # min constraints: s(i,j,k) <= flow(i->j) and s(i,j,k) <= flow(j->k)
-                    for idx_k, k in enumerate(K):
-                        e_jk = edge_var_index(j, k)
-                        constr += [
-                            s[idx_k] <= self.flow[e_ij],          # bound by first hop
-                            s[idx_k] <= self.flow[e_jk],          # bound by second hop
-                        ]
-                    # h2h equality:
-                    constr.append(self.h2h[i, j] == self.flow[e_ij] + cp.sum(s))
-                    total_slack_terms.append(cp.sum(s))
-                else:
-                    # No slack terms for (i,j)
-                    if e_ij is not None:
-                        constr.append(self.h2h[i, j] == self.flow[e_ij])
-                    else:
-                        constr.append(self.h2h[i, j] == 0)
+                if e_ik is None: # h2h is not known as well
+                    continue
 
-        # Objective — same as your original: maximize total slack (can switch to something else)
-        obj = cp.Maximize(cp.sum(total_slack_terms) if total_slack_terms else 0)
+                flow_ik = self.flow[e_ik]
+
+                indirect_flows = 0
+
+                for hop in range(2, self.hops + 1):
+                    for j in self.out_neighbors[i]:
+                        if (i, j, k, hop) in self.indirect_flows:
+                            indirect_flows += cp.sum(self.indirect_flows[(i, j, k, hop)])
+
+                constr.append(self.h2h[i, k] >= flow_ik + indirect_flows)
+
+        indirect_flows = cp.sum(list(self.indirect_flows.values()))
+        #direct_flows = cp.sum(self.flow)
+        max_flows = cp.sum(list(self.max_indirect_flows.values()))
+
+        obj = cp.Maximize(indirect_flows - max_flows) # minimize slack variables
         self.prob = cp.Problem(obj, constr)
 
     def _set_h2h(self, hub_capacities: Dict[Tuple[str, str], float]):
@@ -163,13 +200,17 @@ class ATCGraphOptimizer:
             return np.inf
         err = 0.0
         f = self.flow.value
-        for (i, j), s in self.slack_blocks.items():
-            e_ij = self.edge_index[(i, j)]
-            for idx_k, k in enumerate(self.K_lists[(i, j)]):
-                e_jk = self.edge_index[(j, k)]
-                err = max(err, abs(s.value[idx_k] - min(f[e_ij], f[e_jk])))
+        for (i, j, k, n_hops), s in self.indirect_flows.items():
+            if n_hops == 2:
+                if (i,k) in self.edge_index:
+                    e_ij = self.edge_index[(i, j)]
+                    e_jk = self.edge_index[(j, k)]
 
-                #print(i, j, abs(s.value[idx_k] - min(f[e_ij], f[e_jk])))
+                    #print(i, j, k, s.value, f[e_ij], f[e_jk])
+
+                    err = max(err, abs(s.value - min(f[e_ij], f[e_jk])))
+            else:
+                pass
 
         return float(err)
 
@@ -185,8 +226,8 @@ if __name__ == "__main__":
         ("BE", "NL"): 1411.2,
         ("NL", "DE"): 770.8,
         ("DE", "NL"): 2285.6,
-        #("NL", "FR"): 0.0,
-        #("FR", "NL"): 2774.2,
+        ("NL", "FR"): 0.0,
+        ("FR", "NL"): 2774.2,
         ("BE", "DE"): 1411.2,
         ("DE", "BE"): 0.0,
         ("BE", "FR"): 0.0,
