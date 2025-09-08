@@ -1,3 +1,4 @@
+from src.tasks.h2h_to_atc_tasks import H2HToATCTask
 from src.tasks.jao_tasks import NTCJAO, DABorderFlowsJAO, DANetpositionsJAO, ATCJAO
 from src.tasks.live_intraday_trades_task import LiveIntradayTradesTask
 from src.tasks.rnp_tasks import UploadUKBorderFlowsRNP
@@ -15,6 +16,7 @@ if __name__ == "__main__":
         #UploadUKBorderFlowsRNP(frequency=15*60)
         UploadPICASSOMOLTask(frequency=15*60),
         UploadPICASSOExchangedVolumesTask(frequency=15*60),
+        H2HToATCTask(frequency=60),
     ]
 
     executor = TaskOrchestrator(tasks)

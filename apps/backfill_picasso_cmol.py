@@ -6,8 +6,8 @@ from src.utils.database.nxtdatabase import NXTDatabase
 if __name__ == "__main__":
     ta = TransnetAPI()
 
-    startdt = datetime(2025, 8, 14)
-    todt = datetime(2025, 8, 16)
+    startdt = datetime(2025, 8, 4)
+    todt = datetime(2025, 8, 5)
     dt = startdt
 
     while dt < todt:

@@ -15,4 +15,5 @@ typing_extensions==4.9.0
 tzdata==2024.1
 urllib3==2.2.1
 python-dotenv==0.19.1
+cvxpy==1.7.2
 ./packages/elindus_utils-1.0.5-py3-none-any.whl
