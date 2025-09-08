@@ -122,15 +122,13 @@ class ATCGraphOptimizer:
                             if len(indirect_flows) == 0:
                                 continue
 
-                            if (j, k, hop-1) not in self.max_indirect_flows:
-                                # create max variable for (j,k,hop-1)
-                                max_flow_jk = cp.Variable(nonneg=True)
-                                self.max_indirect_flows[(j, k, hop-1)] = max_flow_jk
+                            # create max variable for (j,k,hop-1)
+                            max_flow_jk = cp.Variable(nonneg=True)
+                            self.max_indirect_flows[(i, j, k, hop-1)] = max_flow_jk
 
-                                constr += [max_flow_jk >= cp.max(cp.hstack(indirect_flows))]
-                            else:
-                                max_flow_jk = self.max_indirect_flows[(j, k, hop-1)]
+                            constr += [max_flow_jk >= cp.max(cp.hstack(indirect_flows))]
 
+                            # now create s(i,j,k) with min constraints
                             max_flow_ijk = cp.Variable(nonneg=True)
                             self.indirect_flows[(i, j, k, hop)] = max_flow_ijk
                             constr += [
