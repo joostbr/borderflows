@@ -82,4 +82,13 @@ if __name__ == "__main__":
     import dotenv
     dotenv.load_dotenv()
 
-    H2HToATCTask(frequency=0).upload_data()
+    fromutc = datetime(2025,9,7, 2)
+    toutc = datetime(2025,9,7, 3)
+
+    data = H2HToATCTask(frequency=0).get_data(fromutc, toutc)
+    df = H2HToATCTask(frequency=0).convert(data)
+
+    df["IN_CAPACITY"] = df["IN_CAPACITY"].astype(int)
+    df["OUT_CAPACITY"] = df["OUT_CAPACITY"].astype(int)
+
+    print(df.to_string())

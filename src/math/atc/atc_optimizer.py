@@ -24,7 +24,7 @@ class ATCGraphOptimizer:
     Edges not in E are *physically impossible* and have no variable (implicitly 0).
     """
 
-    def __init__(self, countries: List[str], hops=3):
+    def __init__(self, countries: List[str], hops=2):
         self.countries = countries
         self.n = len(countries)
 
