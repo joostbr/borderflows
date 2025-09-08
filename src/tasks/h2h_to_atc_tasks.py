@@ -45,8 +45,8 @@ class H2HToATCTask(Task):
     def convert(self, data):
         atc_df = []
         for utctime, group in data.groupby("UTCTIME"):
-            h2h_capacities = group.set_index(["FROM_AREA", "TO_AREA"])["IN_CAPACITY"].to_dict()
-            h2h_capacities.update(group.set_index(["TO_AREA", "FROM_AREA"])["OUT_CAPACITY"].to_dict())
+            h2h_capacities = group.set_index(["FROM_AREA", "TO_AREA"])["OUT_CAPACITY"].to_dict()
+            h2h_capacities.update(group.set_index(["TO_AREA", "FROM_AREA"])["IN_CAPACITY"].to_dict())
 
             for country, optimizer in self.optimizers.items():
                 flows = optimizer.solve(h2h_capacities)
