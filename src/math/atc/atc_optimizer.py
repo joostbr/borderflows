@@ -24,7 +24,7 @@ class ATCGraphOptimizer:
     Edges not in E are *physically impossible* and have no variable (implicitly 0).
     """
 
-    def __init__(self, countries: List[str], hops=2):
+    def __init__(self, countries: List[str], hops=3):
         self.countries = countries
         self.n = len(countries)
 
@@ -117,7 +117,7 @@ class ATCGraphOptimizer:
                                 continue
 
                             indirect_flows = [self.indirect_flows[j, v, k, hop - 1] for v in range(self.n) if
-                                              (j, v, k, hop - 1) in self.indirect_flows]
+                                              (j, v, k, hop - 1) in self.indirect_flows and v != i]
 
                             if len(indirect_flows) == 0:
                                 continue
