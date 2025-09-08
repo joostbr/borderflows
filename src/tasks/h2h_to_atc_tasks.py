@@ -10,7 +10,7 @@ from src.utils.tasks.task_orchestrator import Task
 
 class H2HToATCTask(Task):
     def __init__(self, **kwargs):
-        super().__init__(task=self.convert, task_name="CONVERTING H2H TO ATC", **kwargs)
+        super().__init__(task=self.upload_data, task_name="CONVERTING H2H TO ATC", **kwargs)
 
         self.optimizers = {"BE": ATCGraphOptimizer(["BE", "FR", "DE", "NL"])}
         self.msdb_ro = HexatradersDatabase_RO.get_instance()
