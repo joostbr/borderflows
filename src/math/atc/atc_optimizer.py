@@ -68,7 +68,7 @@ class ATCGraphOptimizer:
 
         # Collect slack variable blocks and constraints
         self.indirect_flows = {}   # (i,j,k,n_hops) -> n_hops is number of hops between j and k
-        self.max_indirect_flows = {} # (i,j, n_hops) -> max over j of s(i,j,k)
+        self.gap_slacks = {}
         constr = []
 
         # Equality per (i,j): h2h[i,j] == flow(i->j) + sum_k slack(i,j,k)  if (i->j) in E
@@ -103,13 +103,18 @@ class ATCGraphOptimizer:
 
                             # two-hop path i->j->k exists
                             max_flow_ijk = cp.Variable(nonneg=True)
+                            gap_ijk = cp.Variable(nonneg=True)
+
                             self.indirect_flows[(i, j, k, hop)] = max_flow_ijk
+                            self.gap_slacks[(i, j, k, hop)] = gap_ijk
                             # min constraints: s(i,j,k) <= flow(i->j) and s(i,j,k) <= flow(j->k)
                             e_jk = edge_var_index(j, k)
 
                             constr += [
                                 max_flow_ijk <= self.flow[e_ij],          # bound by first hop
                                 max_flow_ijk <= self.flow[e_jk],          # bound by second hop
+                                gap_ijk >= self.flow[e_ij] - max_flow_ijk,  # gap variables to measure approximation error
+                                gap_ijk >= self.flow[e_jk] - max_flow_ijk,
                             ]
                     else:
                         for k in range(self.n):
@@ -122,18 +127,18 @@ class ATCGraphOptimizer:
                             if len(indirect_flows) == 0:
                                 continue
 
-                            # create max variable for (j,k,hop-1)
-                            max_flow_jk = cp.Variable(nonneg=True)
-                            self.max_indirect_flows[(i, j, k, hop-1)] = max_flow_jk
-
-                            constr += [max_flow_jk >= cp.max(cp.hstack(indirect_flows))]
+                            max_flow_jk = cp.sum(cp.hstack(indirect_flows))
 
                             # now create s(i,j,k) with min constraints
                             max_flow_ijk = cp.Variable(nonneg=True)
+                            gap_ijk = cp.Variable(nonneg=True)
+
                             self.indirect_flows[(i, j, k, hop)] = max_flow_ijk
                             constr += [
                                 max_flow_ijk <= self.flow[e_ij],          # bound by first hop
                                 max_flow_ijk <= max_flow_jk,                   # bound by other hops
+                                gap_ijk >= self.flow[e_ij] - max_flow_ijk,
+                                gap_ijk >= max_flow_jk - max_flow_ijk,
                             ]
 
         # Equalities for h2h
@@ -159,11 +164,12 @@ class ATCGraphOptimizer:
 
                 constr.append(self.h2h[i, k] == flow_ik + indirect_flows)
 
-        indirect_flows = cp.sum(list(self.indirect_flows.values()))
+        #indirect_flows = cp.sum(list(self.indirect_flows.values()))
+        gap = cp.sum(list(self.gap_slacks.values()))
         #direct_flows = cp.sum(self.flow)
-        max_flows = cp.sum(list(self.max_indirect_flows.values()))
+        #max_flows = cp.sum(list(self.max_indirect_flows.values()))
 
-        obj = cp.Maximize(indirect_flows - max_flows) # minimize slack variables
+        obj = cp.Minimize(gap) # minimize slack variables
         self.prob = cp.Problem(obj, constr)
 
     def _set_h2h(self, hub_capacities: Dict[Tuple[str, str], float]):
@@ -204,9 +210,12 @@ class ATCGraphOptimizer:
                     e_ij = self.edge_index[(i, j)]
                     e_jk = self.edge_index[(j, k)]
 
-                    #print(i, j, k, s.value, f[e_ij], f[e_jk])
+                    e =  abs(s.value - min(f[e_ij], f[e_jk]))
 
-                    err = max(err, abs(s.value - min(f[e_ij], f[e_jk])))
+                    if e > 100:
+                        print(self.countries[i], self.countries[j], self.countries[k], s.value, f[e_ij], f[e_jk])
+
+                    err = max(err, e)
             else:
                 pass
 
@@ -235,16 +244,18 @@ if __name__ == "__main__":
     }'''
 
     hub_capacities = {
-        ('NL', 'BE'): 1542.9,
-        ('NL', 'DE'): 2255.2,
+        ('NL', 'BE'): 1552.6,
+        ('NL', 'DE'): 2210.1,
         ('FR', 'BE'): 0.0,
         ('FR', 'DE'): 0.0,
         ('BE', 'NL'): 0.0,
         ('BE', 'FR'): 2993.0,
         ('BE', 'DE'): 0.0,
-        ('DE', 'NL'): 692.7,
-        ('DE', 'FR'): 4160.9,
-        ('DE', 'BE'): 1542.9
+        ('DE', 'NL'): 723.9,
+        ('DE', 'FR'): 4170.6,
+        ('DE', 'BE'): 1552.6,
+        ('NL', 'FR'): 2902.7,
+        ('FR', 'NL'): 0.0,
     }
 
     flows = atc.solve(hub_capacities)
