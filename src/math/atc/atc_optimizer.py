@@ -157,7 +157,7 @@ class ATCGraphOptimizer:
                         if (i, j, k, hop) in self.indirect_flows:
                             indirect_flows += cp.sum(self.indirect_flows[(i, j, k, hop)])
 
-                constr.append(self.h2h[i, k] >= flow_ik + indirect_flows)
+                constr.append(self.h2h[i, k] == flow_ik + indirect_flows)
 
         indirect_flows = cp.sum(list(self.indirect_flows.values()))
         #direct_flows = cp.sum(self.flow)
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     atc = ATCGraphOptimizer(countries)
 
     # H2H capacities (pairs not listed default to 0). These are the *targets* in the equality.
-    hub_capacities = {
+    '''hub_capacities = {
         ("NL", "BE"): 0.0,       # no direct var; h2h is forced by model = 0
         ("BE", "NL"): 1411.2,
         ("NL", "DE"): 770.8,
@@ -232,6 +232,19 @@ if __name__ == "__main__":
         ("FR", "BE"): 1752.0,
         ("DE", "FR"): 0.0,
         ("FR", "DE"): 2738.5,
+    }'''
+
+    hub_capacities = {
+        ('NL', 'BE'): 1542.9,
+        ('NL', 'DE'): 2255.2,
+        ('FR', 'BE'): 0.0,
+        ('FR', 'DE'): 0.0,
+        ('BE', 'NL'): 0.0,
+        ('BE', 'FR'): 2993.0,
+        ('BE', 'DE'): 0.0,
+        ('DE', 'NL'): 692.7,
+        ('DE', 'FR'): 4160.9,
+        ('DE', 'BE'): 1542.9
     }
 
     flows = atc.solve(hub_capacities)
