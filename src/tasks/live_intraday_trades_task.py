@@ -12,6 +12,7 @@ class LiveIntradayTradesTask(Task):
         self._prev_netborder_h = None
         self._prev_netborder_qh = None
         self._prev_netborder_hh = None
+        self._prev_lt_stats = None
 
     def _filter_new_trades(self, trades_df, prev_trades_df):
         if prev_trades_df is not None:
@@ -40,6 +41,14 @@ class LiveIntradayTradesTask(Task):
         self._prev_netborder_h = netborder_h
         self._prev_netborder_hh = netborder_hh
         self._prev_netborder_qh = netborder_qh
+
+        if self.region == "Belgium": # also upload LT stats for Belgium
+            lt_stats = self.lit.get_xbid_stats_lt(trades)
+            lt_stats_filtered = self._filter_new_trades(lt_stats, self._prev_lt_stats)
+
+            print(f"UPLOADING {len(lt_stats_filtered)} XBID STATS RECORDS")
+            if not lt_stats_filtered.empty:
+                self.lit.upload_xbid_stats(lt_stats_filtered)
 
 
     def __str__(self):

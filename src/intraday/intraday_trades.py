@@ -1,4 +1,5 @@
 import datetime
+from datetime import tzinfo
 
 import pandas as pd
 import pytz
@@ -75,6 +76,9 @@ class IntradayTrades:
 
         np_trades_ind = np_trades_ind[~np_trades_ind.index.isin(epex_trades_ind.index)]
 
+        if len(epex_trades) == 0:
+            return np_trades_ind.reset_index() # bugfix if epex is empty, otherwise column types are messed up
+
         return pd.concat([epex_trades, np_trades_ind.reset_index()], ignore_index=True)
 
     def combine_trades(self, epex_trades, np_trades):
@@ -99,10 +103,11 @@ class IntradayTrades:
         trades = trades.copy()
         trades["VOLPRICE"] = trades["VOLUME"] * trades["PRICE"]
 
-        trades_grouped = trades.groupby(["BUYERAREA", "SELLERAREA", "DELIVERYSTARTUTC", "DELIVERYENDUTC"]).agg({
+        trades_grouped = trades.sort_values(by='TRADETIMEUTC').groupby(["BUYERAREA", "SELLERAREA", "DELIVERYSTARTUTC", "DELIVERYENDUTC"]).agg({
             "VOLPRICE": "sum",
-            "VOLUME": "sum"
-        }).reset_index()
+            "VOLUME": "sum",
+            "PRICE": "last",
+        }).reset_index().rename(columns={"PRICE": "LAST_PRICE"})
 
         netborder_q = trades_grouped[trades_grouped["DELIVERYENDUTC"] - trades_grouped["DELIVERYSTARTUTC"] == datetime.timedelta(minutes=15)].set_index("DELIVERYSTARTUTC")
         netborder_hh = trades_grouped[trades_grouped["DELIVERYENDUTC"] - trades_grouped["DELIVERYSTARTUTC"] == datetime.timedelta(minutes=30)].set_index("DELIVERYSTARTUTC")
@@ -122,7 +127,7 @@ class IntradayTrades:
 
         netborder = pd.concat([netborder_q, netborder_hh, netborder_hh2, netborder_h, netborder_h2, netborder_h3, netborder_h4]).groupby(["DELIVERYSTARTUTC", "BUYERAREA", "SELLERAREA"]).agg({
             "VOLPRICE": "sum",
-            "VOLUME": "sum"
+            "VOLUME": "sum",
         }).reset_index()
 
         netborder["PRICE"] = netborder["VOLPRICE"] / netborder["VOLUME"]
@@ -160,16 +165,48 @@ class IntradayTrades:
         if netborder_qh is not None and len(netborder_qh)>0:
             HexatradersDatabase.get_instance().bulk_upsert(netborder_qh, "traders.XBID_TRADES_PER_PRODUCT", key_cols=["UTCTIME", "BUYERAREA", "SELLERAREA","PRODUCTTYPE"], data_cols=["VOLUME", "PRICE"], moddate_col="CREATIONDATE")
 
+    def _filter_xbid_trades(self, trades, dt):
+        mask_in_range = trades["TRADETIMEUTC"] >= trades["DELIVERYSTARTUTC"].dt.floor('H') - dt - datetime.timedelta(hours=1)
+        #mask_recent = trades["TRADETIMEUTC"] >= datetime.datetime.now(pytz.utc).replace(tzinfo=None) - dt
+
+        return trades[mask_in_range].copy()
+
+    def _get_xbid_stats_from_trades(self, tag, trades):
+        _, nb_h, nb_hh, nb_qh = self.calculate_netborder(trades)
+        nb = pd.concat([nb_h, nb_hh, nb_qh], ignore_index=True)
+        nb["TAG"] = tag
+        return nb.rename(columns={"PRICE": "AVG_PRICE"})
+
+    def get_xbid_stats_lt(self, trades):
+        # trades before lt trades
+        trades_all = trades[trades["TRADETIMEUTC"] <= trades["DELIVERYSTARTUTC"].dt.floor('H') - datetime.timedelta(hours=1, minutes=5)].copy()
+
+        trades_1h = self._filter_xbid_trades(trades_all, datetime.timedelta(hours=1))
+        trades_3h = self._filter_xbid_trades(trades_all, datetime.timedelta(hours=3))
+        trades_6h = self._filter_xbid_trades(trades_all, datetime.timedelta(hours=6))
+
+        stats_1h = self._get_xbid_stats_from_trades("1H", trades_1h)
+        stats_3h = self._get_xbid_stats_from_trades("3H", trades_3h)
+        stats_6h = self._get_xbid_stats_from_trades("6H", trades_6h)
+        stats_all = self._get_xbid_stats_from_trades("ALL", trades_all)
+
+        return pd.concat([stats_1h, stats_3h, stats_6h, stats_all], ignore_index=True)
+
+    def upload_xbid_stats(self, netborder):
+        NXTDatabase.energy().bulk_upsert(netborder, "XBID_STATS", key_cols=["UTCTIME", "PRODUCTTYPE", "TAG", "BUYERAREA", "SELLERAREA"], data_cols=["VOLUME", "AVG_PRICE", "LAST_PRICE"], moddate_col="CREATIONDATE")
 
 
 if __name__ == "__main__":
     from_utc = datetime.datetime(2024,6,21,0,0)
     to_utc = from_utc + datetime.timedelta(hours=24)
 
-    intraday_trades = IntradayTrades(region="Netherlands")
+    intraday_trades = IntradayTrades(region="Belgium")
     trades = intraday_trades.get_trades(from_utc, to_utc)
-    netborder, netborder_h, netborder_hh, netborder_qh = intraday_trades.calculate_netborder(trades)
-    intraday_trades.upload_netborder(netborder, netborder_h, netborder_hh, netborder_qh)
+    stats = intraday_trades.get_xbid_stats_lt(trades)
+    intraday_trades.upload_xbid_stats(stats)
+
+    #netborder, netborder_h, netborder_hh, netborder_qh = intraday_trades.calculate_netborder(trades)
+    #intraday_trades.upload_netborder(netborder, netborder_h, netborder_hh, netborder_qh)
 
     print(trades)
 

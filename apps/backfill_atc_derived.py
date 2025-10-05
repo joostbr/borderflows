@@ -7,8 +7,8 @@ if __name__ == "__main__":
     dotenv.load_dotenv()
     ta = H2HToATCTask(frequency=0)
 
-    startdt = datetime(2024, 1, 1)
-    todt = datetime(2025, 9, 9)
+    startdt = datetime(2023, 1, 1)
+    todt = datetime(2024, 1, 1)
     dt = startdt
 
     while dt < todt:
