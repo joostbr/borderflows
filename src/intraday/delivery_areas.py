@@ -155,5 +155,6 @@ TSO_AREA_MAPPING = {
     "ENDK1": DeliveryArea.DK1,
     "ENDK2": DeliveryArea.DK2,
     "TNL": DeliveryArea.NL,
-    "SEPS": DeliveryArea.SK
+    "SEPS": DeliveryArea.SK,
+    "RTE": DeliveryArea.FR,
 }
