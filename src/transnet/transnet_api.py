@@ -8,8 +8,11 @@ import pandas as pd
 import requests
 import xml.etree.ElementTree as ET
 
+from elindus_utils.msdatabase.MSDatabase import MSDatabase
+
 from src.intraday.delivery_areas import TSO_AREA_MAPPING
 from src.model.cmol.cmol import CMOL
+from src.utils.database.msdb_elindus import HexatradersDatabase
 from src.utils.database.nxtdatabase import NXTDatabase
 
 MOL_QUANTILES = (0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
@@ -165,7 +168,10 @@ class TransnetAPI:
         df = df.groupby("QUARTERHOUR").agg(agg).reset_index()
         df = df[df["UTCTIME"] >= 225].drop(columns="UTCTIME").rename(columns={"QUARTERHOUR": "UTCTIME"})
 
-        NXTDatabase.energy().bulk_upsert(df, "PICASSO_EXCHANGED_VOLUMES", key_cols=["UTCTIME"], data_cols=data_cols, moddate_col="CREATIONDATE")
+        NXTDatabase.energy().bulk_upsert(df, "PICASSO_EXCHANGED_VOLUMES", key_cols=["UTCTIME"], data_cols=list(data_cols), moddate_col="CREATIONDATE")
+
+        df = df.rename(columns={"50Hz_UP": 'TSO_50HZ_UP', "50Hz_DOWN": 'TSO_50HZ_DOWN'})
+        HexatradersDatabase.get_instance().bulk_upsert(df, "traders.PICASSO_EXCHANGED_VOLUMES", key_cols=["UTCTIME"], data_cols=[col for col in df.columns if col.endswith("UP") or col.endswith("DOWN")], moddate_col="CREATIONDATE")
 
 
 if __name__ == "__main__":
