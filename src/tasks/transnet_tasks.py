@@ -52,4 +52,4 @@ class UploadPICASSOExchangedVolumesTask(Task):
         self.transnet_api.upload_exchanged_volumes(df_vol)
 
 if __name__ == '__main__':
-    UploadPICASSOExchangedVolumesTask(frequency=0).execute()
+    UploadPICASSOMOLTask(frequency=0).execute()

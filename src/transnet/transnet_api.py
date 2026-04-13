@@ -136,14 +136,24 @@ class TransnetAPI:
 
         data_cols = [col for col in df.columns if col.startswith("UP_") or col.startswith("DOWN_")]
 
+        print("Uploading LMOLs to NXTDatabase")
         NXTDatabase.energy().bulk_upsert(df, "PICASSO_LMOL", key_cols=["UTCTIME", "REGION"], data_cols=data_cols, moddate_col="CREATIONDATE")
+
+        print("Uploading LMOLs to HexatradersDatabase")
+        HexatradersDatabase.get_instance().bulk_upsert(df, "traders.PICASSO_LMOL", key_cols=["UTCTIME", "REGION"], data_cols=[d for d in data_cols if d != 'CREATIONDATE'], moddate_col="CREATIONDATE")
+
 
     def upload_cmols(self, cmols):
         df = self._build_cmol_df(cmols, MOL_QUANTILES)
 
         data_cols = [col for col in df.columns if col.startswith("UP_") or col.startswith("DOWN_")]
 
+        print("Uploading CMOLs to NXTDatabase")
         NXTDatabase.energy().bulk_upsert(df, "PICASSO_CMOL", key_cols=["UTCTIME"], data_cols=data_cols, moddate_col="CREATIONDATE")
+
+        print("Uploading CMOLs to HexatradersDatabase")
+        HexatradersDatabase.get_instance().bulk_upsert(df, "traders.PICASSO_CMOL", key_cols=["UTCTIME"], data_cols=[d for d in data_cols if d != 'CREATIONDATE'], moddate_col="CREATIONDATE")
+
 
     def upload_cbmp(self, df):
         print(df)

@@ -8,8 +8,8 @@ from src.utils.database.nxtdatabase import NXTDatabase
 if __name__ == "__main__":
     ta = TransnetAPI()
 
-    startdt = date(2025, 2, 1)
-    todt = date(2025, 4, 1)
+    startdt = date(2026, 1, 1)
+    todt = date(2026, 2, 7)
     dt = startdt
 
     df_vol_prev = None
