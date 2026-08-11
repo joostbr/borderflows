@@ -16,7 +16,7 @@ if __name__ == "__main__":
         #UploadUKBorderFlowsRNP(frequency=15*60)
         UploadPICASSOMOLTask(frequency=15*60),
         UploadPICASSOExchangedVolumesTask(frequency=15*60),
-        H2HToATCTask(frequency=60),
+        H2HToATCTask(frequency=15 * 60),
     ]
 
     executor = TaskOrchestrator(tasks)
