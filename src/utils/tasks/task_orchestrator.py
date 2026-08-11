@@ -28,6 +28,7 @@ class Task:
 
         self._retry = False
         self._retry_count = 0
+        self._is_running = False
 
         if self._frequency is None and self._executiontime is None and self._cron is None:
             raise Exception("'frequency' and 'executiontime' can't be both None,"
@@ -59,6 +60,9 @@ class Task:
         return self.task_name
 
     def time_until_next_execution(self):
+        if self._is_running: # wait 10 times longer if the task is still running, to avoid overlapping executions
+            return self._next_execute + self._frequency * 10 - time.time()
+
         return self._next_execute - time.time()
         # if not self._retry:
         #     return self._next_execute - time.time()
@@ -90,12 +94,16 @@ class Task:
         # self._retry = False
 
     def execute(self):
-        self._retry = False
-        print(f"EXECUTING {self.task_name}")
-        status = self._task()
-        print(f"EXECUTED {self.task_name}")
+        try:
+            self._is_running = True
+            self._retry = False
+            print(f"EXECUTING {self.task_name}")
+            status = self._task()
+            print(f"EXECUTED {self.task_name}")
 
-        return status
+            return status
+        finally:
+            self._is_running = False
 
 
 class TaskExecutor:
